@@ -69,7 +69,6 @@ import java.util.Objects;
 
 import javax.microedition.lcdui.Alert;
 import javax.microedition.lcdui.Canvas;
-import javax.microedition.lcdui.Display;
 import javax.microedition.lcdui.Displayable;
 import javax.microedition.lcdui.Form;
 import javax.microedition.lcdui.List;
@@ -105,6 +104,8 @@ public class MicroActivity extends AppCompatActivity {
 	private String appPath;
 
 	public ActivityMicroBinding binding;
+
+	private final Object setCurrentLock = new Object();
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -332,6 +333,12 @@ public class MicroActivity extends AppCompatActivity {
 	public void setCurrent(Displayable displayable) {
 		ViewHandler.postEvent(new SetCurrentEvent(current, displayable));
 		current = displayable;
+		try {
+			synchronized (setCurrentLock) {
+				setCurrentLock.wait();
+			}
+		} catch (Exception ignored) {
+		}
 	}
 
 	public Displayable getCurrent() {
@@ -700,9 +707,8 @@ public class MicroActivity extends AppCompatActivity {
 					binding.displayableContainer.addView(next.getDisplayableView());
 				}
 			} finally {
-				Display display = Display.getDisplay(null);
-				synchronized(display) {
-					display.notify();
+				synchronized(setCurrentLock) {
+					setCurrentLock.notify();
 				}
 			}
 		}

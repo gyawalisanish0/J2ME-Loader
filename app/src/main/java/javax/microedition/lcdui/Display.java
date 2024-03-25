@@ -143,12 +143,6 @@ public class Display {
 
 	private void showCurrent() {
 		ContextHolder.getActivity().setCurrent(current);
-		try {
-			synchronized (this) {
-				wait();
-			}
-		} catch (InterruptedException e) {
-		}
 	}
 
 	public Displayable getCurrent() {

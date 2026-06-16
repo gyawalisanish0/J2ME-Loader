@@ -39,10 +39,13 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
@@ -58,8 +61,8 @@ import javax.microedition.shell.MicroActivity;
 import javax.microedition.util.ContextHolder;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.widget.PopupMenu;
 import androidx.fragment.app.FragmentManager;
 import androidx.preference.PreferenceManager;
 import androidx.core.widget.TextViewCompat;
@@ -78,6 +81,7 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 	private static final String TAG = ConfigActivity.class.getSimpleName();
 
 	protected ArrayList<String> screenPresets = new ArrayList<>();
+	protected Set<String> customPresets = new HashSet<>();
 
 	protected ArrayList<int[]> fontPresetValues = new ArrayList<>();
 	protected ArrayList<String> fontPresetTitles = new ArrayList<>();
@@ -482,6 +486,7 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 	private void fillScreenSizePresets(int w, int h) {
 		ArrayList<String> screenPresets = this.screenPresets;
 		screenPresets.clear();
+		customPresets.clear();
 
 		screenPresets.add("128 x 128");
 		screenPresets.add("128 x 160");
@@ -505,6 +510,7 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 				.getStringSet("ResolutionsPreset", null);
 		if (preset != null) {
 			screenPresets.addAll(preset);
+			customPresets.addAll(preset);
 		}
 		Collections.sort(screenPresets, (o1, o2) -> {
 			int sep1 = o1.indexOf(" x ");
@@ -820,19 +826,48 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 	}
 
 	private void showScreenPresets(View v) {
-		PopupMenu popup = new PopupMenu(this, v);
-		Menu menu = popup.getMenu();
-		for (String preset : screenPresets) {
-			menu.add(preset);
-		}
-		popup.setOnMenuItemClickListener(item -> {
-			String string = item.getTitle().toString();
-			int separator = string.indexOf(" x ");
-			binding.screenWidth.setText(string.substring(0, separator));
-			binding.screenHeight.setText(string.substring(separator + 3));
-			return true;
+		ResolutionAdapter adapter = new ResolutionAdapter();
+		AlertDialog dialog = new AlertDialog.Builder(this)
+				.setTitle(R.string.SIZE_PRESETS)
+				.setAdapter(adapter, (d, which) -> {
+					String string = screenPresets.get(which);
+					int separator = string.indexOf(" x ");
+					binding.screenWidth.setText(string.substring(0, separator));
+					binding.screenHeight.setText(string.substring(separator + 3));
+				})
+				.setNegativeButton(android.R.string.cancel, null)
+				.create();
+		dialog.setOnShowListener(d -> {
+			ListView listView = ((AlertDialog) d).getListView();
+			listView.setOnItemLongClickListener((parent, view, position, id) -> {
+				String item = screenPresets.get(position);
+				if (!customPresets.contains(item)) {
+					Toast.makeText(this, R.string.preset_cannot_delete, Toast.LENGTH_SHORT).show();
+				} else {
+					d.dismiss();
+					new AlertDialog.Builder(this)
+							.setTitle(R.string.delete_resolution_title)
+							.setMessage(getString(R.string.delete_resolution_message, item))
+							.setPositiveButton(R.string.action_context_delete, (dd, w) -> deleteCustomPreset(item))
+							.setNegativeButton(android.R.string.cancel, null)
+							.show();
+				}
+				return true;
+			});
 		});
-		popup.show();
+		dialog.show();
+	}
+
+	private void deleteCustomPreset(String preset) {
+		SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+		Set<String> saved = preferences.getStringSet("ResolutionsPreset", null);
+		if (saved != null) {
+			Set<String> updated = new HashSet<>(saved);
+			updated.remove(preset);
+			preferences.edit().putStringSet("ResolutionsPreset", updated).apply();
+		}
+		customPresets.remove(preset);
+		screenPresets.remove(preset);
 	}
 
 	private void showColorPicker(EditText et) {
@@ -877,6 +912,7 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 		if (set.add(preset)) {
 			preferences.edit().putStringSet("ResolutionsPreset", set).apply();
 			screenPresets.add(preset);
+			customPresets.add(preset);
 			Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show();
 		} else {
 			Toast.makeText(this, R.string.not_saved_exists, Toast.LENGTH_SHORT).show();
@@ -886,6 +922,25 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 	@Override
 	public void onTuneComplete(float[] values) {
 		params.shader.values = values;
+	}
+
+	private class ResolutionAdapter extends ArrayAdapter<String> {
+		ResolutionAdapter() {
+			super(ConfigActivity.this, R.layout.item_resolution_preset, screenPresets);
+		}
+
+		@NonNull
+		@Override
+		public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
+			if (convertView == null) {
+				convertView = getLayoutInflater().inflate(R.layout.item_resolution_preset, parent, false);
+			}
+			String item = getItem(position);
+			((TextView) convertView.findViewById(R.id.resolution_text)).setText(item);
+			convertView.findViewById(R.id.custom_icon).setVisibility(
+					customPresets.contains(item) ? View.VISIBLE : View.GONE);
+			return convertView;
+		}
 	}
 
 	private static class ColorTextWatcher implements TextWatcher {

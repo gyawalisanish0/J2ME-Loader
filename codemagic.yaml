@@ -18,9 +18,15 @@ workflows:
           printf "keyAlias=%s\nkeyPassword=%s\nstoreFile=/tmp/jl-personal.keystore\nstorePassword=%s\n" \
             "$CM_KEY_ALIAS" "$CM_KEY_PASSWORD" "$CM_STORE_PASSWORD" > keystore.properties
 
-      - name: Install NDK 22.1.7171670
+      - name: Patch NDK version for arm64 host
         script: |
-          yes | sdkmanager "ndk;22.1.7171670" --sdk_root="$ANDROID_SDK_ROOT" 2>/dev/null || true
+          # NDK 22 has no arm64 host binaries (Codemagic uses Apple Silicon).
+          # NDK 25 supports arm64 macOS and is backward compatible.
+          sed -i '' "s/NDK_VERSION = '22.1.7171670'/NDK_VERSION = '25.2.9519653'/" build.gradle
+
+      - name: Install NDK 25.2.9519653
+        script: |
+          yes | sdkmanager "ndk;25.2.9519653" --sdk_root="$ANDROID_SDK_ROOT" 2>/dev/null || true
 
       - name: Build openDebug APK
         script: ./gradlew assembleOpenDebug

@@ -29,12 +29,16 @@ import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
 import android.text.Editable;
 import android.text.InputFilter;
+import android.text.InputType;
+import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.text.style.ForegroundColorSpan;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Display;
+import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -44,6 +48,7 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -63,6 +68,7 @@ import javax.microedition.util.ContextHolder;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.PopupMenu;
 import androidx.fragment.app.FragmentManager;
 import androidx.preference.PreferenceManager;
 import androidx.core.widget.TextViewCompat;
@@ -82,6 +88,8 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 
 	protected ArrayList<String> screenPresets = new ArrayList<>();
 	protected Set<String> customPresets = new HashSet<>();
+	private AlertDialog presetsDialog;
+	private ResolutionAdapter presetsAdapter;
 
 	protected ArrayList<int[]> fontPresetValues = new ArrayList<>();
 	protected ArrayList<String> fontPresetTitles = new ArrayList<>();
@@ -826,10 +834,10 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 	}
 
 	private void showScreenPresets(View v) {
-		ResolutionAdapter adapter = new ResolutionAdapter();
-		AlertDialog dialog = new AlertDialog.Builder(this)
+		presetsAdapter = new ResolutionAdapter();
+		presetsDialog = new AlertDialog.Builder(this)
 				.setTitle(R.string.SIZE_PRESETS)
-				.setAdapter(adapter, (d, which) -> {
+				.setAdapter(presetsAdapter, (d, which) -> {
 					String string = screenPresets.get(which);
 					int separator = string.indexOf(" x ");
 					binding.screenWidth.setText(string.substring(0, separator));
@@ -837,25 +845,107 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 				})
 				.setNegativeButton(android.R.string.cancel, null)
 				.create();
-		dialog.setOnShowListener(d -> {
+		presetsDialog.setOnShowListener(d -> {
 			ListView listView = ((AlertDialog) d).getListView();
 			listView.setOnItemLongClickListener((parent, view, position, id) -> {
 				String item = screenPresets.get(position);
 				if (!customPresets.contains(item)) {
 					Toast.makeText(this, R.string.preset_cannot_delete, Toast.LENGTH_SHORT).show();
 				} else {
-					d.dismiss();
-					new AlertDialog.Builder(this)
-							.setTitle(R.string.delete_resolution_title)
-							.setMessage(getString(R.string.delete_resolution_message, item))
-							.setPositiveButton(R.string.action_context_delete, (dd, w) -> deleteCustomPreset(item))
-							.setNegativeButton(android.R.string.cancel, null)
-							.show();
+					showPencilMenu(view, item);
 				}
 				return true;
 			});
 		});
-		dialog.show();
+		presetsDialog.show();
+	}
+
+	private void showPencilMenu(View anchor, String preset) {
+		PopupMenu popup = new PopupMenu(this, anchor);
+		Menu menu = popup.getMenu();
+		TypedValue tv = new TypedValue();
+		getTheme().resolveAttribute(android.R.attr.colorPrimary, tv, true);
+		SpannableString editLabel = new SpannableString(getString(R.string.edit));
+		editLabel.setSpan(new ForegroundColorSpan(tv.data), 0, editLabel.length(), 0);
+		menu.add(0, 0, 0, editLabel);
+		SpannableString deleteLabel = new SpannableString(getString(R.string.action_context_delete));
+		deleteLabel.setSpan(new ForegroundColorSpan(Color.RED), 0, deleteLabel.length(), 0);
+		menu.add(0, 1, 1, deleteLabel);
+		popup.setOnMenuItemClickListener(menuItem -> {
+			if (menuItem.getItemId() == 0) {
+				showEditResolutionDialog(preset);
+			} else {
+				if (presetsDialog != null) presetsDialog.dismiss();
+				new AlertDialog.Builder(this)
+						.setTitle(R.string.delete_resolution_title)
+						.setMessage(getString(R.string.delete_resolution_message, preset))
+						.setPositiveButton(R.string.action_context_delete, (d, w) -> deleteCustomPreset(preset))
+						.setNegativeButton(android.R.string.cancel, null)
+						.show();
+			}
+			return true;
+		});
+		popup.show();
+	}
+
+	private void showEditResolutionDialog(String preset) {
+		int sep = preset.indexOf(" x ");
+		String currentWidth = preset.substring(0, sep);
+		String currentHeight = preset.substring(sep + 3);
+		int padding = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 16,
+				getResources().getDisplayMetrics());
+		LinearLayout layout = new LinearLayout(this);
+		layout.setOrientation(LinearLayout.HORIZONTAL);
+		layout.setPadding(padding * 3, padding, padding * 3, padding);
+		layout.setGravity(Gravity.CENTER_VERTICAL);
+		EditText etWidth = new EditText(this);
+		etWidth.setInputType(InputType.TYPE_CLASS_NUMBER);
+		etWidth.setText(currentWidth);
+		etWidth.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+		TextView xLabel = new TextView(this);
+		xLabel.setText(" x ");
+		EditText etHeight = new EditText(this);
+		etHeight.setInputType(InputType.TYPE_CLASS_NUMBER);
+		etHeight.setText(currentHeight);
+		etHeight.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+		layout.addView(etWidth);
+		layout.addView(xLabel);
+		layout.addView(etHeight);
+		new AlertDialog.Builder(this)
+				.setTitle(R.string.edit_resolution_title)
+				.setView(layout)
+				.setPositiveButton(R.string.save, (d, w) -> {
+					int newW = parseInt(etWidth.getText().toString().trim());
+					int newH = parseInt(etHeight.getText().toString().trim());
+					if (newW <= 0 || newH <= 0) {
+						Toast.makeText(this, R.string.error, Toast.LENGTH_SHORT).show();
+						return;
+					}
+					String newPreset = newW + " x " + newH;
+					if (!newPreset.equals(preset)) {
+						updateCustomPreset(preset, newPreset);
+					}
+				})
+				.setNegativeButton(android.R.string.cancel, null)
+				.show();
+	}
+
+	private void updateCustomPreset(String oldPreset, String newPreset) {
+		if (screenPresets.contains(newPreset)) {
+			Toast.makeText(this, R.string.not_saved_exists, Toast.LENGTH_SHORT).show();
+			return;
+		}
+		SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+		Set<String> saved = preferences.getStringSet("ResolutionsPreset", null);
+		Set<String> updated = saved != null ? new HashSet<>(saved) : new HashSet<>();
+		updated.remove(oldPreset);
+		updated.add(newPreset);
+		preferences.edit().putStringSet("ResolutionsPreset", updated).apply();
+		customPresets.remove(oldPreset);
+		screenPresets.remove(oldPreset);
+		customPresets.add(newPreset);
+		screenPresets.add(newPreset);
+		if (presetsAdapter != null) presetsAdapter.notifyDataSetChanged();
 	}
 
 	private void deleteCustomPreset(String preset) {
@@ -868,6 +958,7 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 		}
 		customPresets.remove(preset);
 		screenPresets.remove(preset);
+		if (presetsAdapter != null) presetsAdapter.notifyDataSetChanged();
 	}
 
 	private void showColorPicker(EditText et) {
@@ -937,8 +1028,14 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 			}
 			String item = getItem(position);
 			((TextView) convertView.findViewById(R.id.resolution_text)).setText(item);
-			convertView.findViewById(R.id.custom_icon).setVisibility(
-					customPresets.contains(item) ? View.VISIBLE : View.GONE);
+			View icon = convertView.findViewById(R.id.custom_icon);
+			if (customPresets.contains(item)) {
+				icon.setVisibility(View.VISIBLE);
+				icon.setOnClickListener(clickedView -> showPencilMenu(clickedView, item));
+			} else {
+				icon.setVisibility(View.GONE);
+				icon.setOnClickListener(null);
+			}
 			return convertView;
 		}
 	}

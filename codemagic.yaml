@@ -7,7 +7,7 @@ workflows:
       # CM_KEYSTORE, CM_KEY_ALIAS, CM_KEY_PASSWORD, CM_STORE_PASSWORD
       # must be added as secure environment variables in the Codemagic UI
       groups:
-        - android_signing
+        - J2ME Signing
     scripts:
       - name: Set up local.properties
         script: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties

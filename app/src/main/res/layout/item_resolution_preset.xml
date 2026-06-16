@@ -20,6 +20,7 @@
         android:layout_height="18dp"
         android:contentDescription="@null"
         android:src="@drawable/ic_edit_custom"
+        android:tint="?attr/colorControlNormal"
         android:visibility="gone" />
 
 </LinearLayout>

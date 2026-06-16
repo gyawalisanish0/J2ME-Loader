@@ -1001,10 +1001,8 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 		}
 
 		SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
-		Set<String> set = preferences.getStringSet("ResolutionsPreset", null);
-		if (set == null) {
-			set = new HashSet<>(1);
-		}
+		Set<String> saved = preferences.getStringSet("ResolutionsPreset", null);
+		Set<String> set = saved != null ? new HashSet<>(saved) : new HashSet<>(1);
 		if (set.add(preset)) {
 			preferences.edit().putStringSet("ResolutionsPreset", set).apply();
 			screenPresets.add(preset);

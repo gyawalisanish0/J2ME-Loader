@@ -5,19 +5,19 @@ workflows:
     instance_type: linux_x2
     environment:
       java: 17
+      # CM_KEYSTORE, CM_KEY_ALIAS, CM_KEY_PASSWORD, CM_STORE_PASSWORD
+      # must be added as secure environment variables in the Codemagic UI
+      groups:
+        - android_signing
     scripts:
       - name: Set up local.properties
         script: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 
-      - name: Create keystore for build
+      - name: Restore persistent keystore
         script: |
-          keytool -genkeypair \
-            -keystore /tmp/jl-debug.keystore \
-            -alias debug \
-            -keyalg RSA -keysize 2048 -validity 365 \
-            -storepass android -keypass android \
-            -dname "CN=Debug, O=Debug, C=US"
-          printf "keyAlias=debug\nkeyPassword=android\nstoreFile=/tmp/jl-debug.keystore\nstorePassword=android\n" > keystore.properties
+          echo "$CM_KEYSTORE" | base64 --decode > /tmp/jl-personal.keystore
+          printf "keyAlias=%s\nkeyPassword=%s\nstoreFile=/tmp/jl-personal.keystore\nstorePassword=%s\n" \
+            "$CM_KEY_ALIAS" "$CM_KEY_PASSWORD" "$CM_STORE_PASSWORD" > keystore.properties
 
       - name: Install NDK 22.1.7171670
         script: |

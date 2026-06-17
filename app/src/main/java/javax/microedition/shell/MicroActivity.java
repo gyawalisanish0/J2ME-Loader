@@ -36,6 +36,7 @@ import android.text.Editable;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.text.method.DigitsKeyListener;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -88,6 +89,7 @@ import ru.playsoftware.j2meloader.util.Constants;
 import ru.playsoftware.j2meloader.util.LogUtils;
 
 public class MicroActivity extends AppCompatActivity {
+	private static final String TAG = MicroActivity.class.getName();
 	private static final int ORIENTATION_DEFAULT = 0;
 	private static final int ORIENTATION_AUTO = 1;
 	private static final int ORIENTATION_PORTRAIT = 2;
@@ -335,9 +337,11 @@ public class MicroActivity extends AppCompatActivity {
 		current = displayable;
 		try {
 			synchronized (setCurrentLock) {
-				setCurrentLock.wait();
+				setCurrentLock.wait(5000);
 			}
-		} catch (Exception ignored) {
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			Log.w(TAG, "setCurrent interrupted while waiting for UI thread", e);
 		}
 	}
 
@@ -671,6 +675,10 @@ public class MicroActivity extends AppCompatActivity {
 		@Override
 		public void process() {
 			try {
+				if (binding == null) {
+					Log.w(TAG, "SetCurrentEvent.process() skipped: activity already destroyed");
+					return;
+				}
 				closeOptionsMenu();
 				if (current != null) {
 					current.clearDisplayableView();
@@ -706,6 +714,9 @@ public class MicroActivity extends AppCompatActivity {
 				if (next != null) {
 					binding.displayableContainer.addView(next.getDisplayableView());
 				}
+			} catch (Exception e) {
+				Log.e(TAG, "SetCurrentEvent.process() failed unexpectedly", e);
+				ACRA.getErrorReporter().handleSilentException(e);
 			} finally {
 				synchronized(setCurrentLock) {
 					setCurrentLock.notify();

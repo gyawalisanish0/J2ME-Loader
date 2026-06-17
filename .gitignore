@@ -40,3 +40,6 @@ captures/
 .externalNativeBuild
 .cxx
 keystore.properties
+
+# Personal reference docs (not for upstream contributions)
+docs/

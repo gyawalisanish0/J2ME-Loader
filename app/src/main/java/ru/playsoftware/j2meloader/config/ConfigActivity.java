@@ -520,6 +520,16 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 			screenPresets.addAll(preset);
 			customPresets.addAll(preset);
 		}
+		sortPresets();
+		String prev = null;
+		for (Iterator<String> iterator = screenPresets.iterator(); iterator.hasNext(); ) {
+			String next = iterator.next();
+			if (next.equals(prev)) iterator.remove();
+			else prev = next;
+		}
+	}
+
+	private void sortPresets() {
 		Collections.sort(screenPresets, (o1, o2) -> {
 			int sep1 = o1.indexOf(" x ");
 			int sep2 = o2.indexOf(" x ");
@@ -531,12 +541,6 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 			if (r != 0) return r;
 			return Integer.decode(o1.substring(sep1 + 3)).compareTo(Integer.decode(o2.substring(sep2 + 3)));
 		});
-		String prev = null;
-		for (Iterator<String> iterator = screenPresets.iterator(); iterator.hasNext(); ) {
-			String next = iterator.next();
-			if (next.equals(prev)) iterator.remove();
-			else prev = next;
-		}
 	}
 
 	private void addFontSizePreset(String title, int small, int medium, int large) {
@@ -945,6 +949,7 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 		screenPresets.remove(oldPreset);
 		customPresets.add(newPreset);
 		screenPresets.add(newPreset);
+		sortPresets();
 		if (presetsAdapter != null) presetsAdapter.notifyDataSetChanged();
 	}
 
@@ -996,14 +1001,14 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 		}
 
 		SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
-		Set<String> set = preferences.getStringSet("ResolutionsPreset", null);
-		if (set == null) {
-			set = new HashSet<>(1);
-		}
+		Set<String> saved = preferences.getStringSet("ResolutionsPreset", null);
+		Set<String> set = saved != null ? new HashSet<>(saved) : new HashSet<>(1);
 		if (set.add(preset)) {
 			preferences.edit().putStringSet("ResolutionsPreset", set).apply();
 			screenPresets.add(preset);
 			customPresets.add(preset);
+			sortPresets();
+			if (presetsAdapter != null) presetsAdapter.notifyDataSetChanged();
 			Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show();
 		} else {
 			Toast.makeText(this, R.string.not_saved_exists, Toast.LENGTH_SHORT).show();

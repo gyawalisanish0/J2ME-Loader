@@ -71,6 +71,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.fragment.app.FragmentManager;
 import androidx.preference.PreferenceManager;
+import androidx.core.content.ContextCompat;
 import androidx.core.widget.TextViewCompat;
 
 import ru.playsoftware.j2meloader.R;
@@ -867,10 +868,8 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 	private void showPencilMenu(View anchor, String preset) {
 		PopupMenu popup = new PopupMenu(this, anchor);
 		Menu menu = popup.getMenu();
-		TypedValue tv = new TypedValue();
-		getTheme().resolveAttribute(android.R.attr.colorPrimary, tv, true);
 		SpannableString editLabel = new SpannableString(getString(R.string.edit));
-		editLabel.setSpan(new ForegroundColorSpan(tv.data), 0, editLabel.length(), 0);
+		editLabel.setSpan(new ForegroundColorSpan(ContextCompat.getColor(this, R.color.btn_bg_normal)), 0, editLabel.length(), 0);
 		menu.add(0, 0, 0, editLabel);
 		SpannableString deleteLabel = new SpannableString(getString(R.string.action_context_delete));
 		deleteLabel.setSpan(new ForegroundColorSpan(Color.RED), 0, deleteLabel.length(), 0);

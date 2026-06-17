@@ -1,4 +1,57 @@
 workflows:
+  android-test-branch:
+    name: J2ME-Loader Test branch APK
+    max_build_duration: 30
+    environment:
+      java: 17
+      groups:
+        - J2ME Signing
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: Test
+          include: true
+    scripts:
+      - name: Set up local.properties
+        script: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+
+      - name: Restore and validate keystore
+        script: |
+          set -e
+          echo "$CM_KEYSTORE" | base64 --decode > /tmp/jl-personal.keystore
+          keytool -importkeystore \
+            -srckeystore /tmp/jl-personal.keystore \
+            -srcstoretype PKCS12 \
+            -srcstorepass "$CM_STORE_PASSWORD" \
+            -destkeystore /tmp/jl-personal.jks \
+            -deststoretype JKS \
+            -deststorepass "$CM_STORE_PASSWORD" \
+            -destkeypass "$CM_KEY_PASSWORD" \
+            -srcalias "$CM_KEY_ALIAS" \
+            -destalias "$CM_KEY_ALIAS" \
+            -noprompt || { echo "ERROR: PKCS12->JKS conversion failed"; exit 1; }
+          printf "keyAlias=%s\nkeyPassword=%s\nstoreFile=/tmp/jl-personal.jks\nstorePassword=%s\n" \
+            "$CM_KEY_ALIAS" "$CM_KEY_PASSWORD" "$CM_STORE_PASSWORD" > keystore.properties
+
+      - name: Install NDK 22.1.7171670
+        script: |
+          yes | sdkmanager "ndk;22.1.7171670" --sdk_root="$ANDROID_SDK_ROOT" 2>/dev/null || true
+
+      - name: Build openDebug APK
+        script: arch -x86_64 ./gradlew assembleOpenDebug --no-build-cache
+
+    artifacts:
+      - app/build/outputs/apk/open/debug/*.apk
+
+    publishing:
+      email:
+        recipients:
+          - sanishgyawali180@gmail.com
+        notify:
+          success: true
+          failure: true
+
   android-open-debug:
     name: J2ME-Loader openDebug APK
     max_build_duration: 30
